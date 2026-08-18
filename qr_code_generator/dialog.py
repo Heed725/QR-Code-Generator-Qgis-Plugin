@@ -4,6 +4,7 @@ from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QColor, QImage, QPainter, QPixmap
 from qgis.PyQt.QtWidgets import (
     QApplication,
+    QColorDialog,
     QComboBox,
     QDialog,
     QFileDialog,
@@ -15,8 +16,6 @@ from qgis.PyQt.QtWidgets import (
     QPushButton,
     QSpinBox,
     QVBoxLayout,
-    QWidget,
-    QColorDialog,
 )
 
 
@@ -32,16 +31,26 @@ class ColorButton(QPushButton):
         return QColor(self._color)
 
     def pick_color(self):
-        chosen = QColorDialog.getColor(self._color, self, "Choose color", QColorDialog.ShowAlphaChannel)
+        chosen = QColorDialog.getColor(
+            self._color,
+            self,
+            "Choose color",
+            QColorDialog.ShowAlphaChannel,
+        )
         if chosen.isValid():
             self._color = chosen
             self._refresh()
 
     def _refresh(self):
-        self.setText(self._color.name(QColor.HexArgb if self._color.alpha() < 255 else QColor.HexRgb))
+        self.setText(
+            self._color.name(
+                QColor.HexArgb if self._color.alpha() < 255 else QColor.HexRgb
+            )
+        )
         text_color = "#000000" if self._color.lightness() > 140 else "#ffffff"
         self.setStyleSheet(
-            "QPushButton { background: %s; color: %s; padding: 6px 10px; border: 1px solid #777; border-radius: 4px; }"
+            "QPushButton { background: %s; color: %s; padding: 6px 10px; "
+            "border: 1px solid #777; border-radius: 4px; }"
             % (self._color.name(QColor.HexArgb), text_color)
         )
 
@@ -60,7 +69,8 @@ class QRCodeGeneratorDialog(QDialog):
         root = QVBoxLayout(self)
 
         intro = QLabel(
-            "Create a QR code from a web link or any text. Choose any foreground and background colors, then save or copy the result."
+            "Create a QR code from a web link or any text. Choose any foreground "
+            "and background colors, then save or copy the result."
         )
         intro.setWordWrap(True)
         root.addWidget(intro)
@@ -100,7 +110,9 @@ class QRCodeGeneratorDialog(QDialog):
         self.preview = QLabel("Preview")
         self.preview.setAlignment(Qt.AlignCenter)
         self.preview.setMinimumSize(360, 360)
-        self.preview.setStyleSheet("QLabel { background: #f5f5f5; border: 1px solid #b7b7b7; }")
+        self.preview.setStyleSheet(
+            "QLabel { background: #f5f5f5; border: 1px solid #b7b7b7; }"
+        )
         root.addWidget(self.preview, 1)
 
         buttons = QHBoxLayout()
@@ -127,27 +139,29 @@ class QRCodeGeneratorDialog(QDialog):
         self.save_button.clicked.connect(self.save_image)
         self.close_button.clicked.connect(self.close)
         self.data_edit.returnPressed.connect(self.generate_qr)
-        self.foreground_button.clicked.connect(lambda: self._refresh_after_color())
-        self.background_button.clicked.connect(lambda: self._refresh_after_color())
+        self.foreground_button.clicked.connect(self._refresh_after_color)
+        self.background_button.clicked.connect(self._refresh_after_color)
 
     def _refresh_after_color(self):
-        # QColorDialog is modal, so this runs after the color is chosen or cancelled.
         self.generate_qr()
 
     def _get_qrcode_module(self):
         try:
             import qrcode
             from qrcode import constants
+
             return qrcode, constants
         except Exception as exc:
             raise RuntimeError(
-                "The QR encoder is missing. Install this plugin from the packaged GitHub Release ZIP, which includes the dependency."
+                "The QR encoder is missing. Install this plugin from the packaged "
+                "GitHub Release ZIP, which includes the dependency."
             ) from exc
 
     def generate_qr(self):
         data = self.data_edit.text().strip()
         if not data:
             self.current_image = None
+            self.preview.clear()
             self.preview.setText("Enter a link or text first.")
             self.status.setText("")
             return
@@ -170,11 +184,14 @@ class QRCodeGeneratorDialog(QDialog):
             qr.add_data(data)
             qr.make(fit=True)
             matrix = qr.get_matrix()
-            self.current_image = self._matrix_to_image(matrix, self.size_spin.value())
+            self.current_image = self._matrix_to_image(
+                matrix, self.size_spin.value()
+            )
             self._show_preview()
             self.status.setText("QR code generated successfully.")
         except Exception as exc:
             self.current_image = None
+            self.preview.clear()
             self.preview.setText("QR generation failed")
             self.status.setText(str(exc))
 
@@ -202,13 +219,12 @@ class QRCodeGeneratorDialog(QDialog):
     def _show_preview(self):
         if self.current_image is None:
             return
+
         pixmap = QPixmap.fromImage(self.current_image)
+        width = max(100, self.preview.width() - 12)
+        height = max(100, self.preview.height() - 12)
         self.preview.setPixmap(
-            pixmap.scaled(
-                self.preview.size() - self.preview.contentsMargins().topLeft() - self.preview.contentsMargins().bottomRight(),
-                Qt.KeepAspectRatio,
-                Qt.FastTransformation,
-            )
+            pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.FastTransformation)
         )
 
     def resizeEvent(self, event):
@@ -229,12 +245,22 @@ class QRCodeGeneratorDialog(QDialog):
         if self.current_image is None:
             return
 
-        path, _ = QFileDialog.getSaveFileName(self, "Save QR Code", "qr-code.png", "PNG image (*.png)")
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save QR Code",
+            "qr-code.png",
+            "PNG image (*.png)",
+        )
         if not path:
             return
         if not path.lower().endswith(".png"):
             path += ".png"
+
         if self.current_image.save(path, "PNG"):
             self.status.setText("Saved: %s" % path)
         else:
-            QMessageBox.critical(self, "QR Code Generator", "Could not save the PNG file.")
+            QMessageBox.critical(
+                self,
+                "QR Code Generator",
+                "Could not save the PNG file.",
+            )
