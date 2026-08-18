@@ -1,11 +1,11 @@
 [general]
 name=QR Code Generator
-description=Generate customizable QR codes from URLs or text directly in QGIS.
-version=1.0.0
+description=Generate customizable QR codes and linear barcodes and place them directly in QGIS Print Layout.
+version=1.1.0
 qgisMinimumVersion=3.22
 author=Heed725
 email=
-about=Create QR codes from links or text, choose any foreground/background colors, preview them, copy them, and export high-resolution PNG files.
+about=Create QR codes and common linear barcodes from links or text, choose any foreground/background colors, preview and export them, and insert them directly into QGIS Print Layout as editable Picture items.
 tracker=https://github.com/Heed725/QR-Code-Generator-Qgis-Plugin/issues
 repository=https://github.com/Heed725/QR-Code-Generator-Qgis-Plugin
 homepage=https://github.com/Heed725/QR-Code-Generator-Qgis-Plugin
