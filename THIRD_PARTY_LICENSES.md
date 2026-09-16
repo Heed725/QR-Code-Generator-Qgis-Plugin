@@ -5,6 +5,12 @@ The packaged GitHub Release ZIP vendors the following Python packages:
 - `qrcode` (python-qrcode) 8.2 — BSD license.
 - `python-barcode` 0.16.1 — MIT license.
 
+The release build removes upstream tests and command-line entry points that
+the QGIS plugin does not use. It also replaces upstream `assert` statements
+with equivalent explicit runtime checks. The barcode SVG writer's standard
+library DOM import is marked as a Bandit false positive because it only creates
+new SVG documents and never parses untrusted XML.
+
 ## python-qrcode
 
 Copyright (c) 2011, Lincoln Loop

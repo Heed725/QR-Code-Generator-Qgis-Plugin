@@ -1,84 +1,24 @@
 # QR Code Generator for QGIS
 
-A QGIS plugin for creating QR codes and common linear barcodes, with direct QGIS Print Layout integration.
+[![Release](https://img.shields.io/github/v/release/Heed725/QR-Code-Generator-Qgis-Plugin?label=release)](https://github.com/Heed725/QR-Code-Generator-Qgis-Plugin/releases)
+[![Security checks](https://github.com/Heed725/QR-Code-Generator-Qgis-Plugin/actions/workflows/security.yml/badge.svg)](https://github.com/Heed725/QR-Code-Generator-Qgis-Plugin/actions/workflows/security.yml)
+[![QGIS](https://img.shields.io/badge/QGIS-3.22--4.x-589632)](https://qgis.org/)
+[![Qt](https://img.shields.io/badge/Qt-5%20%7C%206-41CD52)](https://www.qt.io/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Features
+Create QR codes and common linear barcodes, save or copy them, and insert them
+directly into QGIS Print Layout as editable Picture items.
 
-- Generate **QR Code**, **Code 128**, **Code 39**, **EAN-13**, **EAN-8**, **UPC-A**, **GS1-128**, and **ITF**.
-- Generate from a URL, text, product number, or other supported barcode value.
-- Pick **any foreground color** and **any background color**.
-- Live preview.
-- Export as high-resolution PNG.
-- Copy the generated code to the clipboard.
-- Add the generated QR/barcode directly to **QGIS Print Layout**.
-- Adds **Add QR Code / Barcode…** to the Print Layout **Items** menu and Actions toolbar.
-- Inserted layout codes are normal QGIS **Picture** items, so they can be moved, resized, aligned, duplicated, locked, and exported with the map layout.
-- Self-contained release ZIP with both encoder dependencies bundled.
+## Download
 
-## Installation
+Download [`qr_code_generator-0.0.1.zip`](https://github.com/Heed725/QR-Code-Generator-Qgis-Plugin/releases/download/0.0.1/qr_code_generator-0.0.1.zip),
+then install it through **Plugins → Manage and Install Plugins → Install from
+ZIP**. Use this named asset because the automatic source archive does not
+contain the bundled QR and barcode encoders.
 
-### Recommended: GitHub Release
+See the [complete plugin guide](qr_code_generator/README.md) for supported code
+types, usage, Print Layout instructions and licensing.
 
-1. Open the repository **Releases** page.
-2. Download `qr_code_generator-qgis-v1.1.0.zip`.
-3. In QGIS, open **Plugins → Manage and Install Plugins…**.
-4. Select **Install from ZIP**.
-5. Choose the downloaded ZIP and install it.
-6. Enable **QR Code Generator**.
+## Changelog
 
-## Normal QGIS usage
-
-1. Click the **Generate QR / Barcode** toolbar button, or use **Plugins → QR Code Generator**.
-2. Choose the code type.
-3. Paste a website link, enter text, or enter the barcode value.
-4. Choose foreground and background colors.
-5. Set the output width.
-6. For QR codes, choose error correction and quiet-zone size.
-7. Click **Generate / Refresh**.
-8. Use **Save PNG…**, **Copy**, or **Add to Print Layout**.
-
-## Print Layout usage
-
-1. Open **Project → Layout Manager** and open or create a Print Layout.
-2. Look in the Print Layout **Items** menu or the Actions toolbar.
-3. Click **Add QR Code / Barcode…**.
-4. Choose QR Code or one of the supported linear barcode formats.
-5. Enter the link/value and choose colors.
-6. Click **Generate / Refresh**.
-7. Click **Add to Print Layout**.
-8. The plugin creates a QGIS Picture item near the top-left of the layout and selects it automatically.
-9. Move, resize, align, duplicate, or style the item using normal QGIS layout controls.
-
-The plugin saves generated layout image assets in a `.qr_barcode_assets` folder beside the QGIS project when possible. This keeps the Picture item source available when the project/layout is reopened.
-
-## Barcode notes
-
-- QR Code accepts general text and URLs.
-- Code 128 is a good general-purpose one-dimensional barcode for text and numbers.
-- EAN/UPC formats require correctly sized numeric values; the encoder validates them and calculates checksums where supported.
-- Linear barcodes use vector SVG internally for rendering before being converted to the high-resolution image inserted into the layout.
-
-## Compatibility
-
-- QGIS 3.22+
-- Windows, Linux and macOS
-- No external Python package installation is required when using the packaged GitHub Release ZIP.
-
-## Development
-
-The source tree intentionally does not vendor third-party dependencies. The release workflow creates a build directory and installs:
-
-- `qrcode==8.2`
-- `python-barcode==0.16.1`
-
-into `qr_code_generator/vendor` before creating the distributable ZIP.
-
-The Print Layout integration uses QGIS' `layoutDesignerOpened` / `layoutDesignerWillBeClosed` interfaces and adds the plugin action to every open layout designer.
-
-## Release automation
-
-`.github/workflows/release.yml` validates the Python source, packages the self-contained plugin, and publishes `v1.1.0` with `qr_code_generator-qgis-v1.1.0.zip`.
-
-## License
-
-MIT for this plugin. Bundled third-party packages retain their own licenses; see `THIRD_PARTY_LICENSES.md`.
+Version 0.0.1 generates QR Code, Code 128, Code 39, EAN-13, EAN-8, UPC-A, GS1-128 and ITF images with configurable colours, size, QR error correction and quiet zones. Generated codes can be previewed, copied, saved as PNG or inserted directly into QGIS Print Layout as editable Picture items. This release adds QGIS 3.22 through QGIS 4.x and Qt5/Qt6 compatibility, scoped colour, image, painter and layout enums, explicit cleanup logging, complete repository metadata, bundled qrcode and python-barcode dependencies, automated security checks and a verified installable release ZIP.

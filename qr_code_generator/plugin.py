@@ -2,7 +2,12 @@ import os
 import sys
 
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.core import Qgis, QgsMessageLog
+
+try:
+    from qgis.PyQt.QtGui import QAction
+except ImportError:
+    from qgis.PyQt.QtWidgets import QAction
 
 
 class QRCodeGeneratorPlugin:
@@ -17,7 +22,9 @@ class QRCodeGeneratorPlugin:
         icon = QIcon(os.path.join(self.plugin_dir, "icon.svg"))
         self.action = QAction(icon, "Generate QR / Barcode", self.iface.mainWindow())
         self.action.setObjectName("QRCodeGeneratorAction")
-        self.action.setToolTip("Generate QR codes and linear barcodes, including Print Layout items")
+        self.action.setToolTip(
+            "Generate QR codes and linear barcodes, including Print Layout items"
+        )
         self.action.triggered.connect(lambda: self.run())
 
         self.iface.addToolBarIcon(self.action)
@@ -26,19 +33,23 @@ class QRCodeGeneratorPlugin:
         # QGIS exposes every Print Layout designer to plugins. Add our action to
         # designers which are already open and to every designer opened later.
         self.iface.layoutDesignerOpened.connect(self._on_layout_designer_opened)
-        self.iface.layoutDesignerWillBeClosed.connect(self._on_layout_designer_will_close)
+        self.iface.layoutDesignerWillBeClosed.connect(
+            self._on_layout_designer_will_close
+        )
         for designer in self.iface.openLayoutDesigners():
             self._attach_layout_action(designer)
 
     def unload(self):
         try:
             self.iface.layoutDesignerOpened.disconnect(self._on_layout_designer_opened)
-        except (TypeError, RuntimeError):
-            pass
+        except (TypeError, RuntimeError) as error:
+            self._log_cleanup_error("layout-opened signal", error)
         try:
-            self.iface.layoutDesignerWillBeClosed.disconnect(self._on_layout_designer_will_close)
-        except (TypeError, RuntimeError):
-            pass
+            self.iface.layoutDesignerWillBeClosed.disconnect(
+                self._on_layout_designer_will_close
+            )
+        except (TypeError, RuntimeError) as error:
+            self._log_cleanup_error("layout-closed signal", error)
 
         for designer, action in list(self.layout_actions.items()):
             self._remove_layout_action(designer, action)
@@ -70,7 +81,9 @@ class QRCodeGeneratorPlugin:
         icon = QIcon(os.path.join(self.plugin_dir, "icon.svg"))
         action = QAction(icon, "Add QR Code / Barcode…", designer.window())
         action.setObjectName("QRCodeGeneratorLayoutAction")
-        action.setToolTip("Generate a QR code or barcode and add it directly to this Print Layout")
+        action.setToolTip(
+            "Generate a QR code or barcode and add it directly to this Print Layout"
+        )
         action.triggered.connect(lambda checked=False, d=designer: self.run(d))
 
         designer.itemsMenu().addAction(action)
@@ -81,9 +94,18 @@ class QRCodeGeneratorPlugin:
         try:
             designer.itemsMenu().removeAction(action)
             designer.actionsToolbar().removeAction(action)
-        except RuntimeError:
-            pass
+        except RuntimeError as error:
+            self._log_cleanup_error("Print Layout action", error)
         action.deleteLater()
+
+    @staticmethod
+    def _log_cleanup_error(component, error):
+        """Record harmless Qt cleanup failures instead of hiding them."""
+        QgsMessageLog.logMessage(
+            "Could not clean up {}: {}".format(component, error),
+            "QR Code Generator",
+            Qgis.MessageLevel.Warning,
+        )
 
     def run(self, layout_designer=None):
         vendor_dir = os.path.join(self.plugin_dir, "vendor")

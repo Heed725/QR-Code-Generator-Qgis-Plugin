@@ -22,11 +22,53 @@ from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
 )
 from qgis.core import (
+    Qgis,
     QgsLayoutItemPicture,
     QgsLayoutPoint,
     QgsLayoutSize,
     QgsProject,
     QgsUnitTypes,
+)
+
+
+def enum_value(
+    container,
+    scope_name,
+    member_name,
+    legacy_container=None,
+    legacy_member_name=None,
+):
+    """Return a Qt6/QGIS 4 scoped enum or its older-version fallback."""
+    scope = getattr(container, scope_name, None)
+    if scope is not None:
+        return getattr(scope, member_name)
+    fallback = legacy_container if legacy_container is not None else container
+    return getattr(fallback, legacy_member_name or member_name)
+
+
+COLOR_SHOW_ALPHA = enum_value(
+    QColorDialog,
+    "ColorDialogOption",
+    "ShowAlphaChannel",
+)
+COLOR_HEX_ARGB = enum_value(QColor, "NameFormat", "HexArgb")
+COLOR_HEX_RGB = enum_value(QColor, "NameFormat", "HexRgb")
+QT_ALIGN_CENTER = enum_value(Qt, "AlignmentFlag", "AlignCenter")
+QT_NO_PEN = enum_value(Qt, "PenStyle", "NoPen")
+QT_KEEP_ASPECT = enum_value(Qt, "AspectRatioMode", "KeepAspectRatio")
+QT_FAST_TRANSFORMATION = enum_value(
+    Qt,
+    "TransformationMode",
+    "FastTransformation",
+)
+IMAGE_ARGB32 = enum_value(QImage, "Format", "Format_ARGB32")
+PICTURE_ZOOM = enum_value(QgsLayoutItemPicture, "ResizeMode", "Zoom")
+LAYOUT_MILLIMETERS = enum_value(
+    Qgis,
+    "LayoutUnit",
+    "Millimeters",
+    QgsUnitTypes,
+    "LayoutMillimeters",
 )
 
 
@@ -46,7 +88,7 @@ class ColorButton(QPushButton):
             self._color,
             self,
             "Choose color",
-            QColorDialog.ShowAlphaChannel,
+            COLOR_SHOW_ALPHA,
         )
         if chosen.isValid():
             self._color = chosen
@@ -55,14 +97,14 @@ class ColorButton(QPushButton):
     def _refresh(self):
         self.setText(
             self._color.name(
-                QColor.HexArgb if self._color.alpha() < 255 else QColor.HexRgb
+                COLOR_HEX_ARGB if self._color.alpha() < 255 else COLOR_HEX_RGB
             )
         )
         text_color = "#000000" if self._color.lightness() > 140 else "#ffffff"
         self.setStyleSheet(
             "QPushButton { background: %s; color: %s; padding: 6px 10px; "
             "border: 1px solid #777; border-radius: 4px; }"
-            % (self._color.name(QColor.HexArgb), text_color)
+            % (self._color.name(COLOR_HEX_ARGB), text_color)
         )
 
 
@@ -139,7 +181,7 @@ class QRCodeGeneratorDialog(QDialog):
         root.addLayout(form)
 
         self.preview = QLabel("Preview")
-        self.preview.setAlignment(Qt.AlignCenter)
+        self.preview.setAlignment(QT_ALIGN_CENTER)
         self.preview.setMinimumSize(420, 360)
         self.preview.setStyleSheet(
             "QLabel { background: #f5f5f5; border: 1px solid #b7b7b7; }"
@@ -187,9 +229,16 @@ class QRCodeGeneratorDialog(QDialog):
         if hasattr(self, "layout_button"):
             self.layout_button.setEnabled(has_layout)
             self.layout_hint.setText(
-                "Print Layout detected. The generated code can be inserted as an editable Picture item."
+                (
+                    "Print Layout detected. The generated code can be inserted "
+                    "as an editable Picture item."
+                )
                 if has_layout
-                else "Open a QGIS Print Layout to enable direct placement. The plugin also adds an 'Add QR Code / Barcode…' command to the Layout Items menu and toolbar."
+                else (
+                    "Open a QGIS Print Layout to enable direct placement. The "
+                    "plugin also adds an 'Add QR Code / Barcode…' command to "
+                    "the Layout Items menu and toolbar."
+                )
             )
 
     def _type_changed(self):
@@ -199,27 +248,33 @@ class QRCodeGeneratorDialog(QDialog):
         if is_qr:
             self.data_edit.setPlaceholderText("https://example.com or any text")
         else:
-            self.data_edit.setPlaceholderText("Enter the value required by the selected barcode")
+            self.data_edit.setPlaceholderText(
+                "Enter the value required by the selected barcode"
+            )
         self.generate_code()
 
     def _get_qrcode_module(self):
         try:
             import qrcode
             from qrcode import constants
+
             return qrcode, constants
-        except Exception as exc:
+        except ImportError as exc:
             raise RuntimeError(
-                "The QR encoder is missing. Install this plugin from the packaged GitHub Release ZIP."
+                "The QR encoder is missing. Install this plugin from the "
+                "packaged GitHub Release ZIP."
             ) from exc
 
     def _get_barcode_modules(self):
         try:
             import barcode
             from barcode.writer import SVGWriter
+
             return barcode, SVGWriter
-        except Exception as exc:
+        except ImportError as exc:
             raise RuntimeError(
-                "The linear barcode encoder is missing. Install this plugin from the packaged GitHub Release ZIP."
+                "The linear barcode encoder is missing. Install this plugin "
+                "from the packaged GitHub Release ZIP."
             ) from exc
 
     def generate_code(self):
@@ -236,9 +291,13 @@ class QRCodeGeneratorDialog(QDialog):
             if self.current_kind == "qr":
                 self.current_image = self._generate_qr_image(data)
             else:
-                self.current_image = self._generate_barcode_image(data, self.current_kind)
+                self.current_image = self._generate_barcode_image(
+                    data, self.current_kind
+                )
             self._show_preview()
-            self.status.setText("%s generated successfully." % self.type_combo.currentText())
+            self.status.setText(
+                "%s generated successfully." % self.type_combo.currentText()
+            )
         except Exception as exc:
             self.current_image = None
             self.preview.clear()
@@ -272,8 +331,8 @@ class QRCodeGeneratorDialog(QDialog):
         code.write(
             output,
             options={
-                "foreground": self.foreground_button.color().name(QColor.HexRgb),
-                "background": self.background_button.color().name(QColor.HexRgb),
+                "foreground": self.foreground_button.color().name(COLOR_HEX_RGB),
+                "background": self.background_button.color().name(COLOR_HEX_RGB),
                 "module_width": 0.35,
                 "module_height": 15.0,
                 "quiet_zone": 4.0,
@@ -296,7 +355,7 @@ class QRCodeGeneratorDialog(QDialog):
             height = max(128, requested_width // 3)
         height = min(height, requested_width)
 
-        image = QImage(requested_width, height, QImage.Format_ARGB32)
+        image = QImage(requested_width, height, IMAGE_ARGB32)
         image.fill(self.background_button.color())
         painter = QPainter(image)
         renderer.render(painter)
@@ -310,11 +369,11 @@ class QRCodeGeneratorDialog(QDialog):
 
         scale = max(1, requested_size // modules)
         actual_size = modules * scale
-        image = QImage(actual_size, actual_size, QImage.Format_ARGB32)
+        image = QImage(actual_size, actual_size, IMAGE_ARGB32)
         image.fill(self.background_button.color())
 
         painter = QPainter(image)
-        painter.setPen(Qt.NoPen)
+        painter.setPen(QT_NO_PEN)
         painter.setBrush(self.foreground_button.color())
         for row_index, row in enumerate(matrix):
             y = row_index * scale
@@ -331,7 +390,7 @@ class QRCodeGeneratorDialog(QDialog):
         width = max(100, self.preview.width() - 12)
         height = max(100, self.preview.height() - 12)
         self.preview.setPixmap(
-            pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.FastTransformation)
+            pixmap.scaled(width, height, QT_KEEP_ASPECT, QT_FAST_TRANSFORMATION)
         )
 
     def resizeEvent(self, event):
@@ -367,14 +426,17 @@ class QRCodeGeneratorDialog(QDialog):
         if self.current_image.save(path, "PNG"):
             self.status.setText("Saved: %s" % path)
         else:
-            QMessageBox.critical(self, "QR Code & Barcode Generator", "Could not save the PNG file.")
+            QMessageBox.critical(
+                self, "QR Code & Barcode Generator", "Could not save the PNG file."
+            )
 
     def add_to_layout(self):
         if self.layout_designer is None:
             QMessageBox.information(
                 self,
                 "Print Layout",
-                "Open a QGIS Print Layout first, then use the plugin button inside the layout window.",
+                "Open a QGIS Print Layout first, then use the plugin button "
+                "inside the layout window.",
             )
             return
 
@@ -387,27 +449,25 @@ class QRCodeGeneratorDialog(QDialog):
             layout = self.layout_designer.layout()
             picture = QgsLayoutItemPicture(layout)
             picture.setPicturePath(asset_path)
-            picture.setResizeMode(QgsLayoutItemPicture.Zoom)
+            picture.setResizeMode(PICTURE_ZOOM)
 
             if self.current_kind == "qr":
                 width_mm, height_mm = 35.0, 35.0
             else:
                 width_mm, height_mm = 65.0, 28.0
 
-            picture.attemptMove(
-                QgsLayoutPoint(10.0, 10.0, QgsUnitTypes.LayoutMillimeters)
-            )
+            picture.attemptMove(QgsLayoutPoint(10.0, 10.0, LAYOUT_MILLIMETERS))
             picture.attemptResize(
-                QgsLayoutSize(width_mm, height_mm, QgsUnitTypes.LayoutMillimeters)
+                QgsLayoutSize(width_mm, height_mm, LAYOUT_MILLIMETERS)
             )
             layout.addLayoutItem(picture)
             self.layout_designer.selectItems([picture])
             self.layout_designer.showItemOptions(picture)
             self.status.setText(
-                "%s added to Print Layout. Move and resize it like any other Picture item."
-                % self.type_combo.currentText()
+                "%s added to Print Layout. Move and resize it like any other "
+                "Picture item." % self.type_combo.currentText()
             )
-        except Exception as exc:
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
             QMessageBox.critical(
                 self,
                 "Print Layout",

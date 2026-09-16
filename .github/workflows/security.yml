@@ -1,0 +1,60 @@
+name: Security and quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install scanners and pinned encoders
+        run: |
+          python -m pip install --disable-pip-version-check bandit detect-secrets flake8
+          mkdir -p build/qr_code_generator/vendor
+          cp -a qr_code_generator/. build/qr_code_generator/
+          python -m pip install --disable-pip-version-check --no-compile \
+            --target build/qr_code_generator/vendor \
+            'qrcode==8.2' 'python-barcode==0.16.1'
+          python scripts/prepare_vendor.py build/qr_code_generator/vendor
+          find build/qr_code_generator/vendor -maxdepth 1 -type d \
+            -name '*.dist-info' -exec rm -rf {} +
+          find build/qr_code_generator/vendor -type d -name '__pycache__' \
+            -prune -exec rm -rf {} +
+      - name: Compile Python
+        run: python -m compileall -q qr_code_generator
+      - name: Bandit source and packaged dependencies
+        run: bandit -r build/qr_code_generator -q
+      - name: Flake8 source
+        run: flake8 qr_code_generator --max-line-length=88
+      - name: Detect secrets in final package
+        run: |
+          detect-secrets scan build/qr_code_generator --all-files > .secrets.json
+          python -c "import json; data=json.load(open('.secrets.json')); assert not data.get('results'), data.get('results')"
+      - name: Validate QGIS package metadata
+        run: |
+          python - <<'PY'
+          import configparser
+          import pathlib
+
+          root = pathlib.Path("qr_code_generator")
+          assert root.name.isidentifier()
+          assert (root / "__init__.py").is_file()
+          assert (root / "metadata.txt").is_file()
+          parser = configparser.ConfigParser()
+          parser.read(root / "metadata.txt", encoding="utf-8")
+          general = parser["general"]
+          required = ("name", "description", "version", "qgisMinimumVersion",
+                      "author", "email", "repository", "tracker")
+          assert all(general.get(item, "").strip() for item in required)
+          assert general["version"] == "0.0.1"
+          PY

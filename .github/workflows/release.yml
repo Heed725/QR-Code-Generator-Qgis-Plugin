@@ -1,4 +1,4 @@
-name: Build and Release QGIS Plugin
+name: Build release
 
 on:
   push:
@@ -8,68 +8,57 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: qr-code-generator-release
+  cancel-in-progress: true
+
 jobs:
-  package-release:
+  release:
     runs-on: ubuntu-latest
-    env:
-      VERSION: 1.1.0
-      PLUGIN_DIR: qr_code_generator
-      ZIP_NAME: qr_code_generator-qgis-v1.1.0.zip
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-
-      - name: Validate Python syntax
-        run: |
-          python -m py_compile qr_code_generator/__init__.py
-          python -m py_compile qr_code_generator/plugin.py
-          python -m py_compile qr_code_generator/dialog.py
-
-      - name: Validate plugin metadata
-        run: |
-          grep -q '^name=QR Code Generator$' qr_code_generator/metadata.txt
-          grep -q '^version=1.1.0$' qr_code_generator/metadata.txt
-          grep -q '^qgisMinimumVersion=3.22$' qr_code_generator/metadata.txt
-
+          python-version: "3.11"
       - name: Build self-contained plugin
         run: |
-          rm -rf build "$ZIP_NAME"
           mkdir -p build/qr_code_generator/vendor
-          cp qr_code_generator/__init__.py build/qr_code_generator/
-          cp qr_code_generator/plugin.py build/qr_code_generator/
-          cp qr_code_generator/dialog.py build/qr_code_generator/
-          cp qr_code_generator/metadata.txt build/qr_code_generator/
-          cp qr_code_generator/icon.svg build/qr_code_generator/
-          cp LICENSE build/qr_code_generator/LICENSE
-          cp THIRD_PARTY_LICENSES.md build/qr_code_generator/THIRD_PARTY_LICENSES.md
-          python -m pip install --disable-pip-version-check --no-compile --target build/qr_code_generator/vendor 'qrcode==8.2' 'python-barcode==0.16.1'
-          find build -type d -name '__pycache__' -prune -exec rm -rf {} +
+          cp -a qr_code_generator/. build/qr_code_generator/
+          python -m pip install --disable-pip-version-check --no-compile \
+            --target build/qr_code_generator/vendor \
+            'qrcode==8.2' 'python-barcode==0.16.1'
+          python scripts/prepare_vendor.py build/qr_code_generator/vendor
+          find build/qr_code_generator/vendor -maxdepth 1 -type d \
+            -name '*.dist-info' -exec rm -rf {} +
+          find build/qr_code_generator/vendor -type d -name '__pycache__' \
+            -prune -exec rm -rf {} +
           cd build
-          zip -r "../$ZIP_NAME" qr_code_generator
-
-      - name: Inspect package
+          zip -q -r ../qr_code_generator-0.0.1.zip qr_code_generator
+      - name: Validate ZIP structure and dependencies
         run: |
-          unzip -l "$ZIP_NAME"
-          test -f build/qr_code_generator/metadata.txt
-          test -f build/qr_code_generator/vendor/qrcode/__init__.py
-          test -f build/qr_code_generator/vendor/barcode/__init__.py
+          python - <<'PY'
+          from zipfile import ZipFile
 
-      - name: Publish v1.1.0 release
+          archive = "qr_code_generator-0.0.1.zip"
+          with ZipFile(archive) as package:
+              names = package.namelist()
+              package.testzip()
+          roots = {name.split("/", 1)[0] for name in names if name}
+          assert roots == {"qr_code_generator"}, roots
+          required = (
+              "qr_code_generator/__init__.py",
+              "qr_code_generator/metadata.txt",
+              "qr_code_generator/vendor/qrcode/__init__.py",
+              "qr_code_generator/vendor/barcode/__init__.py",
+          )
+          assert all(item in names for item in required)
+          PY
+      - name: Publish release 0.0.1
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "v$VERSION" >/dev/null 2>&1; then
-            echo "Release v$VERSION already exists; refreshing asset."
-            gh release upload "v$VERSION" "$ZIP_NAME" --clobber
-          else
-            gh release create "v$VERSION" "$ZIP_NAME" \
-              --target "${GITHUB_SHA}" \
-              --title "QR Code Generator QGIS Plugin v$VERSION" \
-              --notes "Adds direct QGIS Print Layout integration plus QR Code, Code 128, Code 39, EAN-13, EAN-8, UPC-A, GS1-128 and ITF generation. The plugin supports arbitrary foreground/background colors, PNG export, clipboard copy, and inserts generated codes into Print Layout as editable Picture items. The release ZIP is self-contained and includes qrcode and python-barcode."
-          fi
+          gh release delete 0.0.1 --cleanup-tag --yes || true
+          gh release create 0.0.1 qr_code_generator-0.0.1.zip \
+            --title "QR Code Generator 0.0.1" \
+            --notes-file qr_code_generator/CHANGELOG.md \
+            --latest
